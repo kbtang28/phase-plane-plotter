@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Phase plane plotter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=STIX+Two+Text:ital@1&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script>
+<style>
+:root{
+  --page:#eef0f6; --surface:#ffffff; --ink:#1b2236; --muted:#5d6680; --line:#d8dce7;
+  --grid:#eceff5; --axis:#a3abbe; --field:rgba(27,34,54,.72);
+  --accent:#5a4fcf; --accent-ink:#ffffff; --error:#b42318;
+  --null-x:#2f9e44; --null-y:#b8860b;
+  --ramp-1:#3b5bdb; --ramp-2:#9c36b5; --ramp-3:#e8590c;
+  --sol-1:#3b5bdb; --sol-2:#e03131; --sol-3:#9c36b5; --sol-4:#0c8599; --sol-5:#e8590c; --sol-6:#c2255c; --sol-7:#495057;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --page:#11141d; --surface:#191d29; --ink:#e4e7f0; --muted:#98a0b5; --line:#2c3243;
+    --grid:#232838; --axis:#566079; --field:rgba(228,231,240,.64);
+    --accent:#a49cff; --accent-ink:#14121f; --error:#ff8f80;
+    --null-x:#69db7c; --null-y:#ffd43b;
+    --ramp-1:#748ffc; --ramp-2:#da77f2; --ramp-3:#ff922b;
+    --sol-1:#748ffc; --sol-2:#ff6b6b; --sol-3:#da77f2; --sol-4:#3bc9db; --sol-5:#ff922b; --sol-6:#f783ac; --sol-7:#ced4da;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#11141d; --surface:#191d29; --ink:#e4e7f0; --muted:#98a0b5; --line:#2c3243;
+  --grid:#232838; --axis:#566079; --field:rgba(228,231,240,.64);
+  --accent:#a49cff; --accent-ink:#14121f; --error:#ff8f80;
+  --null-x:#69db7c; --null-y:#ffd43b;
+  --ramp-1:#748ffc; --ramp-2:#da77f2; --ramp-3:#ff922b;
+  --sol-1:#748ffc; --sol-2:#ff6b6b; --sol-3:#da77f2; --sol-4:#3bc9db; --sol-5:#ff922b; --sol-6:#f783ac; --sol-7:#ced4da;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--page);color:var(--ink);
+  font-family:"Lato",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  font-size:15px;line-height:1.45}
+.top{max-width:1240px;margin:0 auto;padding:22px 20px 6px}
+.top h1{font-size:1.6rem;line-height:1.2;margin:0;font-weight:700;letter-spacing:-.01em}
+.top p{margin:4px 0 0;color:var(--muted);max-width:62ch}
+.app{max-width:1240px;margin:0 auto;padding:12px 20px 36px;display:grid;
+  grid-template-columns:minmax(0,1fr) 350px;gap:20px;align-items:start}
+@media (max-width:880px){.app{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px}
+.plot-wrap{padding:8px}
+canvas{display:block;margin:0 auto;cursor:crosshair;touch-action:manipulation;max-width:100%}
+.readout{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;
+  color:var(--muted);font-size:.875rem;padding:8px 6px 2px;font-variant-numeric:tabular-nums;min-height:2em}
+.legend{display:flex;align-items:center;gap:8px}
+.legend .bar{width:140px;height:8px;border-radius:4px;
+  background:linear-gradient(90deg,var(--ramp-1),var(--ramp-2),var(--ramp-3))}
+.status{padding:0 6px 4px;font-size:.9rem}
+.eqs{margin-top:16px;padding:14px 18px}
+.eqs h2{font-size:1rem;margin:0 0 6px}
+.eqs ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+.eqs li{display:flex;align-items:center;gap:10px;font-variant-numeric:tabular-nums}
+.eqs li svg{flex:none;color:var(--ink)}
+.eqs li .kind{color:var(--muted)}
+.eqs .note{color:var(--muted);font-size:.8125rem;margin:8px 0 0}
+.panel{padding:4px 18px 14px}
+.panel section{padding:14px 0 12px;border-top:1px solid var(--line)}
+.panel section:first-child{border-top:0}
+.panel h2{font-size:1rem;margin:0 0 10px;font-weight:700}
+.math{font-family:"STIX Two Text","Cambria Math","Times New Roman",serif;font-style:italic;font-size:1.12em}
+label{display:block}
+.eq{display:grid;grid-template-columns:2.4em minmax(0,1fr);align-items:center;gap:6px;margin-bottom:8px}
+.range-row{display:grid;grid-template-columns:2.4em minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px;margin-bottom:8px}
+.range-row .to{color:var(--muted);font-size:.875rem}
+input[type=text],input[type=number],select{font:inherit;color:var(--ink);background:var(--page);
+  border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:0;width:100%}
+input[type=number]{font-variant-numeric:tabular-nums}
+select{margin-bottom:10px;appearance:none;-webkit-appearance:none;padding-right:2.2em;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%237d859a' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right .8em center;background-size:12px 8px;cursor:pointer}input[type=checkbox],input[type=range]{accent-color:var(--accent)}
+input[type=range]{width:100%;margin:0}
+button{font:inherit;border:1px solid var(--line);background:var(--page);color:var(--ink);
+  border-radius:6px;padding:6px 12px;cursor:pointer}
+button:hover{border-color:var(--axis)}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}
+.check{display:flex;align-items:center;gap:8px;margin-top:8px;cursor:pointer}
+.setting{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.stepper button{border:0;border-radius:0;width:34px;padding:5px 0;background:var(--page)}
+.stepper output{min-width:2.6em;text-align:center;font-variant-numeric:tabular-nums}
+.slider-setting{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:center;margin-bottom:8px}
+.error{color:var(--error);font-size:.875rem;margin:2px 0 6px}
+.error:empty{display:none}
+.hint{color:var(--muted);font-size:.8125rem;margin:4px 0 0}
+.param{margin-top:10px}
+.param .line{display:grid;grid-template-columns:2.4em minmax(0,1fr) 5.4em;gap:8px;align-items:center}
+.param .bounds{display:flex;align-items:center;gap:6px;margin:4px 0 0 calc(2.4em + 8px);
+  font-size:.8125rem;color:var(--muted)}
+.param .bounds input{width:5.2em;padding:2px 6px;font-size:.8125rem}
+.initial{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end}
+.initial span{display:block;font-size:.8125rem;color:var(--muted);margin-bottom:2px}
+.sols{list-style:none;margin:12px 0 4px;padding:0;display:grid;gap:6px;max-height:340px;overflow-y:auto}
+.sols li{display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+.sols .note{flex-basis:100%;font-size:.75rem;color:var(--muted);margin:0 0 2px 26px}
+.sols .note:empty{display:none}
+.numerics{margin-top:14px;border:1px solid var(--line);border-radius:8px;padding:0 12px}
+.numerics summary{cursor:pointer;padding:9px 0;font-weight:700}
+.numerics[open]{padding-bottom:12px}
+.num-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;align-items:end}
+.num-grid span{display:block;font-size:.8125rem;color:var(--muted);margin-bottom:2px}
+.numerics .hint{margin:10px 0}
+.sols .sol-name{flex:1;display:flex;align-items:center;gap:8px;font-weight:700;cursor:pointer;min-width:0;white-space:nowrap}
+.sols input[type=number]{width:4.9em;padding:3px 6px}
+.sols .paren{color:var(--muted)}
+.sols .remove{border:0;background:none;color:var(--muted);padding:2px 6px;font-size:1.1rem;line-height:1}
+.sols .remove:hover{color:var(--error)}
+.sols li.off .sol-name span{opacity:.45}
+@media (min-width:881px){
+  .app > div:first-child{
+    position:sticky;
+    top:calc(env(safe-area-inset-top,0px) + 12px);
+    max-height:calc(100vh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));
+    overflow-y:auto;
+  }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Phase plane plotter</h1>
+  <p>Enter a system of two first-order equations, then click the plane to trace solutions through any point.</p>
+</header>
+
+<main class="app">
+  <div>
+    <div class="card plot-wrap" id="plotWrap">
+      <canvas id="plot" role="img" aria-label="Phase plane with direction field and traced solutions"></canvas>
+      <div class="readout">
+        <span id="coords"></span>
+        <span class="legend" id="legend"><span id="tLo"></span><span class="bar"></span><span id="tHi"></span></span>
+      </div>
+      <div class="status" id="status" aria-live="polite"></div>
+    </div>
+    <div class="card eqs" id="eqBox">
+      <h2>Equilibria</h2>
+      <ul id="eqList"></ul>
+      <p class="note" id="eqNote"></p>
+    </div>
+  </div>
+
+  <aside class="card panel">
+    <section>
+      <h2>System</h2>
+      <select id="preset" aria-label="Example systems"></select>
+      <label class="eq"><span class="math">x′ =</span>
+        <input type="text" id="fInput" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="dx/dt"></label>
+      <label class="eq"><span class="math">y′ =</span>
+        <input type="text" id="gInput" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="dy/dt"></label>
+      <p class="error" id="eqError" role="alert"></p>
+      <div id="params"></div>
+      <p class="hint">Write in x, y and t, using + − * / ^ and functions such as sin, exp and sqrt. Any other variable, such as a or mu, gets its own slider.</p>
+    </section>
+
+    <section>
+      <h2>Window</h2>
+      <div class="range-row"><span class="math">x</span>
+        <input type="number" step="any" inputmode="decimal" id="xmin" aria-label="Minimum x">
+        <span class="to">to</span>
+        <input type="number" step="any" inputmode="decimal" id="xmax" aria-label="Maximum x"></div>
+      <div class="range-row"><span class="math">y</span>
+        <input type="number" step="any" inputmode="decimal" id="ymin" aria-label="Minimum y">
+        <span class="to">to</span>
+        <input type="number" step="any" inputmode="decimal" id="ymax" aria-label="Maximum y"></div>
+      <p class="error" id="winError" role="alert"></p>
+      <div class="row">
+        <button type="button" id="zoomIn">Zoom in</button>
+        <button type="button" id="zoomOut">Zoom out</button>
+        <button type="button" id="zoomReset">Reset window</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Time</h2>
+      <div class="range-row"><span class="math">t</span>
+        <input type="number" step="any" inputmode="decimal" id="tmin" aria-label="Minimum t">
+        <span class="to">to</span>
+        <input type="number" step="any" inputmode="decimal" id="tmax" aria-label="Maximum t"></div>
+      <div class="range-row"><span></span>
+        <span class="to" style="text-align:right">start at <span class="math">t</span> =</span>
+        <span></span>
+        <input type="number" step="any" inputmode="decimal" id="t0" aria-label="Initial t"></div>
+      <p class="error" id="timeError" role="alert"></p>
+      <div class="row">
+        <button type="button" id="shorter">Shorter paths</button>
+        <button type="button" id="longer">Longer paths</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Direction field</h2>
+      <div class="setting"><span>Arrows per side</span>
+        <span class="stepper"><button type="button" id="nDown" aria-label="Fewer arrows">−</button><output id="nOut"></output><button type="button" id="nUp" aria-label="More arrows">+</button></span></div>
+      <label class="slider-setting"><span>Arrow length</span>
+        <input type="range" id="alen" min="0.3" max="1.3" step="0.05"></label>
+      <label class="check"><input type="checkbox" id="variable"> Variable-length arrows</label>
+      <label class="check"><input type="checkbox" id="nullclines"> Nullclines
+        <span class="hint" style="margin:0">(<span style="color:var(--null-x)">green</span> x′ = 0, <span style="color:var(--null-y)">gold</span> y′ = 0)</span></label>
+      <label class="check"><input type="checkbox" id="showEq"> Show equilibria and their types</label>
+    </section>
+
+    <section>
+      <h2>Solutions</h2>
+      <div class="initial">
+        <label><span>Initial x</span><input type="number" step="any" inputmode="decimal" id="x0"></label>
+        <label><span>Initial y</span><input type="number" step="any" inputmode="decimal" id="y0"></label>
+        <button type="button" class="primary" id="trace">Trace path</button>
+      </div>
+      <p class="error" id="seedError" role="alert"></p>
+      <div class="row">
+        <button type="button" id="gridTrace">Trace a 5 × 5 grid</button>
+        <button type="button" id="clear">Clear paths</button>
+      </div>
+      <ul class="sols" id="solList" aria-label="Traced solutions"></ul>
+      <div class="setting" style="margin-top:12px"><span>Line width</span>
+        <span class="stepper"><button type="button" id="lwDown" aria-label="Thinner lines">−</button><output id="lwOut"></output><button type="button" id="lwUp" aria-label="Thicker lines">+</button></span></div>
+      <label class="check"><input type="checkbox" id="timeColor"> Show time as color</label>
+      <label class="check"><input type="checkbox" id="showSeeds"> Mark and label initial positions</label>
+      <details class="numerics">
+        <summary>Numerical settings</summary>
+        <div class="num-grid">
+          <label><span>Relative tolerance</span><input type="number" step="any" inputmode="decimal" id="rtol"></label>
+          <label><span>Absolute tolerance factor</span><input type="number" step="any" inputmode="decimal" id="atolf"></label>
+          <label><span>Max time step</span><input type="number" step="any" inputmode="decimal" id="hmax"></label>
+          <label><span>Max steps per direction</span><input type="number" step="1" inputmode="numeric" id="maxSteps"></label>
+          <label><span>Stop beyond (window widths)</span><input type="number" step="any" inputmode="decimal" id="escape"></label>
+        </div>
+        <p class="error" id="numError" role="alert"></p>
+        <p class="hint" id="numBlurb"></p>
+        <button type="button" id="numReset">Restore defaults</button>
+      </details>
+    </section>
+  </aside>
+</main>
+
+<script>
+function startApp(){
+const $ = id => document.getElementById(id);
+const canvas = $('plot'), ctx = canvas.getContext('2d');
+
+// ─────────────────────────── examples ───────────────────────────
+const PRESETS = [
+  {name:'Predator–prey with logistic prey', f:'x*(1 - x) - x*y', g:'y*(x - a)',
+   params:{a:{value:0.5,min:0,max:1.5}}, win:[0,1.5,0,1.5], t:[-8,8,0], seeds:[[0.2,1.0]]},
+  {name:'Lotka–Volterra', f:'a*x - b*x*y', g:'-c*y + d*x*y',
+   params:{a:{value:1,min:0,max:3},b:{value:1,min:0,max:3},c:{value:1,min:0,max:3},d:{value:1,min:0,max:3}},
+   win:[0,3,0,3], t:[-10,10,0], seeds:[[0.5,0.5],[1.5,1.2]]},
+  {name:'Competing species', f:'x*(3 - x - 2y)', g:'y*(2 - x - y)',
+   win:[0,3.5,0,3], t:[-4,8,0], seeds:[[0.5,2.5],[2.5,0.4]]},
+  {name:'Damped pendulum', f:'y', g:'-sin(x) - b*y',
+   params:{b:{value:0.25,min:0,max:2}}, win:[-7,7,-4,4], t:[-10,25,0], seeds:[[-6,3]]},
+  {name:'Van der Pol oscillator', f:'y', g:'mu*(1 - x^2)*y - x',
+   params:{mu:{value:1,min:0,max:4}}, win:[-4,4,-6,6], t:[0,30,0], seeds:[[0.3,0]]},
+  {name:'Linear system', f:'a*x + b*y', g:'c*x + d*y',
+   params:{a:{value:-1,min:-3,max:3},b:{value:2,min:-3,max:3},c:{value:-2,min:-3,max:3},d:{value:-1,min:-3,max:3}},
+   win:[-3,3,-3,3], t:[-6,6,0], seeds:[[2.5,2.5]]}
+];
+
+// ─────────────────────────── state ───────────────────────────
+const S = {
+  f:'', g:'', field:null, usesT:false, params:{}, paramNames:[], P:{},
+  xmin:0, xmax:1, ymin:0, ymax:1, tmin:-8, tmax:8, t0:0, home:[0,1,0,1],
+  n:20, alen:0.85, variable:false, nullclines:false, showEq:false,
+  timeColor:false, showSeeds:true, lw:2, seeds:[], paths:[], nulls:null, eqs:[], nextLabel:0,
+  num:{rtol:1e-6, atolf:1e-9, hmax:0.05, maxSteps:20000, escape:4}
+};
+
+// ─────────────────── turning text into a fast function ───────────────────
+const RESERVED = new Set(['x','y','t']);
+const CONST = {pi:'Math.PI', e:'Math.E', tau:'(2*Math.PI)', phi:'1.618033988749895', Infinity:'Infinity', NaN:'NaN'};
+const FN = {sin:'Math.sin',cos:'Math.cos',tan:'Math.tan',asin:'Math.asin',acos:'Math.acos',atan:'Math.atan',
+  atan2:'Math.atan2',sinh:'Math.sinh',cosh:'Math.cosh',tanh:'Math.tanh',asinh:'Math.asinh',acosh:'Math.acosh',
+  atanh:'Math.atanh',exp:'Math.exp',sqrt:'Math.sqrt',cbrt:'Math.cbrt',abs:'Math.abs',sign:'Math.sign',
+  floor:'Math.floor',ceil:'Math.ceil',round:'Math.round',min:'Math.min',max:'Math.max',pow:'Math.pow',
+  log:'H.log',log10:'Math.log10',log2:'Math.log2',sec:'H.sec',csc:'H.csc',cot:'H.cot',mod:'H.mod'};
+const H = {
+  log:(a,b) => b === undefined ? Math.log(a) : Math.log(a)/Math.log(b),
+  sec:a => 1/Math.cos(a), csc:a => 1/Math.sin(a), cot:a => 1/Math.tan(a),
+  mod:(a,b) => ((a % b) + b) % b
+};
+const GREEK = {alpha:'α',beta:'β',gamma:'γ',delta:'δ',epsilon:'ε',zeta:'ζ',eta:'η',theta:'θ',kappa:'κ',
+  lambda:'λ',mu:'μ',nu:'ν',xi:'ξ',rho:'ρ',sigma:'σ',omega:'ω'};
+
+function unsupported(){ const e = new Error('unsupported'); e.unsupported = true; return e; }
+function isConstName(n){ return Object.prototype.hasOwnProperty.call(CONST, n) || typeof math[n] === 'number'; }
+
+function toJS(node, params){
+  switch(node.type){
+    case 'ConstantNode':
+      if (typeof node.value === 'number') return '(' + node.value + ')';
+      throw unsupported();
+    case 'ParenthesisNode': return '(' + toJS(node.content, params) + ')';
+    case 'SymbolNode': {
+      const n = node.name;
+      if (RESERVED.has(n)) return n;
+      if (params.has(n)) return 'P[' + JSON.stringify(n) + ']';
+      if (Object.prototype.hasOwnProperty.call(CONST, n)) return CONST[n];
+      if (typeof math[n] === 'number') return '(' + math[n] + ')';
+      throw unsupported();
+    }
+    case 'OperatorNode': {
+      const a = node.args.map(k => toJS(k, params));
+      if (a.length === 1){
+        if (node.op === '-') return '(-' + a[0] + ')';
+        if (node.op === '+') return a[0];
+        throw unsupported();
+      }
+      if (a.length === 2){
+        if (['+','-','*','/'].includes(node.op)) return '(' + a[0] + node.op + a[1] + ')';
+        if (node.op === '^') return 'Math.pow(' + a[0] + ',' + a[1] + ')';
+        if (node.op === '%' || node.op === 'mod') return 'H.mod(' + a[0] + ',' + a[1] + ')';
+      }
+      throw unsupported();
+    }
+    case 'FunctionNode': {
+      const n = node.fn && node.fn.name;
+      if (n && FN[n] && !params.has(n)) return FN[n] + '(' + node.args.map(k => toJS(k, params)).join(',') + ')';
+      throw unsupported();
+    }
+    default: throw unsupported();
+  }
+}
+
+function symbolsOf(node){
+  const out = [];
+  node.traverse((n, path, parent) => {
+    if (n.isSymbolNode && !(parent && parent.isFunctionNode && parent.fn === n)) out.push(n.name);
+  });
+  return out;
+}
+
+function compileSystem(){
+  let fN, gN;
+  try { fN = math.parse(S.f); } catch(e){ $('eqError').textContent = 'Couldn’t read x′: ' + e.message; return false; }
+  try { gN = math.parse(S.g); } catch(e){ $('eqError').textContent = 'Couldn’t read y′: ' + e.message; return false; }
+  const syms = [...symbolsOf(fN), ...symbolsOf(gN)];
+  const names = [];
+  for (const s of syms) if (!RESERVED.has(s) && !isConstName(s) && !names.includes(s)) names.push(s);
+  const nameSet = new Set(names);
+  const params = {}, P = {};
+  for (const n of names){ params[n] = S.params[n] || {value:1, min:-3, max:3}; P[n] = params[n].value; }
+
+  let F;
+  try {
+    const raw = new Function('x','y','t','P','H', 'return [' + toJS(fN, nameSet) + ',' + toJS(gN, nameSet) + '];');
+    F = (x, y, t) => raw(x, y, t, S.P, H);
+  } catch(e){
+    if (!e.unsupported){ $('eqError').textContent = e.message; return false; }
+    const cf = fN.compile(), cg = gN.compile();
+    try {
+      const sc = Object.assign({x:(S.xmin+S.xmax)/2, y:(S.ymin+S.ymax)/2, t:S.t0}, P);
+      cf.evaluate(sc); cg.evaluate(sc);
+    } catch(err){ $('eqError').textContent = err.message; return false; }
+    const num = v => typeof v === 'number' ? v : NaN;
+    F = (x, y, t) => {
+      const sc = Object.assign({x, y, t}, S.P);
+      try { return [num(cf.evaluate(sc)), num(cg.evaluate(sc))]; } catch(err){ return [NaN, NaN]; }
+    };
+  }
+
+  $('eqError').textContent = '';
+  S.field = F; S.usesT = syms.includes('t'); S.params = params; S.P = P;
+  const changed = names.join(',') !== S.paramNames.join(',');
+  S.paramNames = names;
+  if (changed) buildParams();
+  return true;
+}
+
+// ─────────────────────────── numerics ───────────────────────────
+// Dormand–Prince 5(4) coefficients
+const DP = {
+  c:[0, 1/5, 3/10, 4/5, 8/9, 1],
+  a:[[], [1/5], [3/40, 9/40], [44/45, -56/15, 32/9],
+     [19372/6561, -25360/2187, 64448/6561, -212/729],
+     [9017/3168, -355/33, 46732/5247, 49/176, -5103/18656]],
+  b:[35/384, 0, 500/1113, 125/192, -2187/6784, 11/84],
+  e:[71/57600, 0, -71/16695, 71/1920, -17253/339200, 22/525, -1/40]
+};
+
+// Adaptive RK45 from t to t1 (either direction). Returns the accepted points and why it stopped early, if it did.
+function dopri(F, x, y, t, t1, box, atol){
+  const N = S.num, xs = [x], ys = [y], ts = [t];
+  const T = t1 - t, dir = Math.sign(T);
+  const done = stop => ({xs, ys, ts, stop});
+  if (T === 0) return done(null);
+  let k1 = F(x, y, t);
+  if (!isFinite(k1[0]) || !isFinite(k1[1])) return done({reason:'invalid', t});
+
+  // starting step from the size of the solution and its derivative (Hairer et al.)
+  const scx = atol[0] + N.rtol*Math.abs(x), scy = atol[1] + N.rtol*Math.abs(y);
+  const d0 = Math.hypot(x/scx, y/scy)/Math.SQRT2, d1 = Math.hypot(k1[0]/scx, k1[1]/scy)/Math.SQRT2;
+  let h = (d0 < 1e-5 || d1 < 1e-5) ? 1e-6 : 0.01*d0/d1;
+  h = Math.min(h, N.hmax, Math.abs(T));
+
+  let attempts = 0;
+  while (true){
+    const rem = Math.abs(t1 - t);
+    if (rem <= 1e-12*Math.max(1, Math.abs(t1))) return done(null);
+    if (attempts >= N.maxSteps) return done({reason:'steps', t});
+    if (h > rem) h = rem;
+    if (h < 1e-12*Math.max(1, Math.abs(t))) return done({reason:'stepsize', t});
+    attempts++;
+    const hs = dir*h, k = [k1];
+    for (let i = 1; i < 6; i++){
+      let ax = x, ay = y;
+      for (let j = 0; j < i; j++){ ax += hs*DP.a[i][j]*k[j][0]; ay += hs*DP.a[i][j]*k[j][1]; }
+      k.push(F(ax, ay, t + DP.c[i]*hs));
+    }
+    let xn = x, yn = y;
+    for (let j = 0; j < 6; j++){ xn += hs*DP.b[j]*k[j][0]; yn += hs*DP.b[j]*k[j][1]; }
+    const k7 = F(xn, yn, t + hs);
+    let ex = DP.e[6]*k7[0], ey = DP.e[6]*k7[1];
+    for (let j = 0; j < 6; j++){ ex += DP.e[j]*k[j][0]; ey += DP.e[j]*k[j][1]; }
+    ex *= hs; ey *= hs;
+    const sx_ = atol[0] + N.rtol*Math.max(Math.abs(x), Math.abs(xn));
+    const sy_ = atol[1] + N.rtol*Math.max(Math.abs(y), Math.abs(yn));
+    const err = Math.sqrt(((ex/sx_)**2 + (ey/sy_)**2)/2);
+
+    if (!isFinite(err) || !isFinite(k7[0]) || !isFinite(k7[1])){
+      // something went non-finite inside the step: shrink and retry, and give up if that can't help
+      h *= 0.25;
+      if (h < 1e-12*Math.max(1, Math.abs(t))) return done({reason:'invalid', t});
+      continue;
+    }
+    if (err <= 1){
+      t = Math.abs(t1 - (t + hs)) <= 1e-12*Math.max(1, Math.abs(t1)) ? t1 : t + hs;
+      x = xn; y = yn; k1 = k7;
+      xs.push(x); ys.push(y); ts.push(t);
+      if (x < box[0] || x > box[1] || y < box[2] || y > box[3]) return done({reason:'bound', t});
+      h = Math.min(N.hmax, h*Math.min(5, Math.max(0.2, 0.9*Math.pow(Math.max(err, 1e-10), -0.2))));
+    } else {
+      h *= Math.max(0.2, 0.9*Math.pow(err, -0.2));
+    }
+  }
+}
+
+const STOP_TEXT = {
+  invalid:'the equations gave an undefined or infinite value',
+  bound:'far outside the window',
+  steps:'reached the step limit',
+  stepsize:'step size became too small; the system may be stiff or singular here'
+};
+function stopText(p){
+  if (!p || !p.stops) return '';
+  const parts = [];
+  if (p.stops.back) parts.push('Stopped backward at t = ' + fmt(p.stops.back.t) + ' (' + STOP_TEXT[p.stops.back.reason] + ').');
+  if (p.stops.fwd) parts.push('Stopped forward at t = ' + fmt(p.stops.fwd.t) + ' (' + STOP_TEXT[p.stops.fwd.reason] + ').');
+  return parts.join(' ');
+}
+
+function solve(x0, y0){
+  const W = S.xmax - S.xmin, Hh = S.ymax - S.ymin;
+  const e = S.num.escape, atol = [S.num.atolf*W, S.num.atolf*Hh];
+  const box = [S.xmin - e*W, S.xmax + e*W, S.ymin - e*Hh, S.ymax + e*Hh];
+  const b = dopri(S.field, x0, y0, S.t0, S.tmin, box, atol);
+  const f = dopri(S.field, x0, y0, S.t0, S.tmax, box, atol);
+  return {
+    xs: b.xs.slice().reverse().concat(f.xs.slice(1)),
+    ys: b.ys.slice().reverse().concat(f.ys.slice(1)),
+    ts: b.ts.slice().reverse().concat(f.ts.slice(1)),
+    seedIndex: b.xs.length - 1,
+    stops: {back: b.stop, fwd: f.stop}
+  };
+}
+
+function march(Z, xs, ys){
+  const nx = xs.length, ny = ys.length, out = [];
+  for (let i = 0; i < nx - 1; i++) for (let j = 0; j < ny - 1; j++){
+    const a = Z[i*ny + j], b = Z[(i+1)*ny + j], c = Z[(i+1)*ny + j + 1], d = Z[i*ny + j + 1];
+    if (!(isFinite(a) && isFinite(b) && isFinite(c) && isFinite(d))) continue;
+    const pts = [];
+    const edge = (p, q, x1, y1, x2, y2) => {
+      if ((p < 0) !== (q < 0)){ const s = p/(p - q); pts.push(x1 + (x2 - x1)*s, y1 + (y2 - y1)*s); }
+    };
+    edge(a, b, xs[i], ys[j], xs[i+1], ys[j]);
+    edge(b, c, xs[i+1], ys[j], xs[i+1], ys[j+1]);
+    edge(c, d, xs[i+1], ys[j+1], xs[i], ys[j+1]);
+    edge(d, a, xs[i], ys[j+1], xs[i], ys[j]);
+    if (pts.length === 4 || pts.length === 8) for (const v of pts) out.push(v);
+  }
+  return out;
+}
+
+function nullclines(){
+  const nx = 160, ny = 160, F = S.field, t = S.t0;
+  const xs = new Float64Array(nx), ys = new Float64Array(ny);
+  for (let i = 0; i < nx; i++) xs[i] = S.xmin + (S.xmax - S.xmin)*i/(nx - 1);
+  for (let j = 0; j < ny; j++) ys[j] = S.ymin + (S.ymax - S.ymin)*j/(ny - 1);
+  const U = new Float64Array(nx*ny), V = new Float64Array(nx*ny);
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++){
+    const r = F(xs[i], ys[j], t); U[i*ny + j] = r[0]; V[i*ny + j] = r[1];
+  }
+  return {u: march(U, xs, ys), v: march(V, xs, ys)};
+}
+
+function jac(F, x, y, t){
+  const hx = 1e-6*(1 + Math.abs(x)), hy = 1e-6*(1 + Math.abs(y));
+  const a = F(x + hx, y, t), b = F(x - hx, y, t), c = F(x, y + hy, t), d = F(x, y - hy, t);
+  return [(a[0]-b[0])/(2*hx), (c[0]-d[0])/(2*hy), (a[1]-b[1])/(2*hx), (c[1]-d[1])/(2*hy)];
+}
+
+function classify(J){
+  const [a, b, c, d] = J;
+  const tr = a + d, det = a*d - b*c, disc = tr*tr - 4*det;
+  const sc = Math.abs(a) + Math.abs(b) + Math.abs(c) + Math.abs(d) + 1e-300;
+  if (Math.abs(det) < 1e-7*sc*sc) return {kind:'deg', label:'degenerate (zero eigenvalue)'};
+  if (det < 0) return {kind:'saddle', label:'saddle (unstable)'};
+  if (Math.abs(tr) < 1e-6*sc) return {kind:'center', label:'center (linear test inconclusive)'};
+  const stable = tr < 0;
+  return {kind: stable ? 'stable' : 'unstable', label: (stable ? 'stable ' : 'unstable ') + (disc < 0 ? 'spiral' : 'node')};
+}
+
+function equilibria(){
+  const F = S.field, t = S.t0, W = S.xmax - S.xmin, Hh = S.ymax - S.ymin, K = 12, found = [];
+  for (let i = 0; i < K; i++) for (let j = 0; j < K; j++){
+    let x = S.xmin + W*(i + .5)/K, y = S.ymin + Hh*(j + .5)/K, ok = false;
+    for (let it = 0; it < 60; it++){
+      const r = F(x, y, t), u = r[0], v = r[1];
+      if (!isFinite(u) || !isFinite(v)) break;
+      const J = jac(F, x, y, t), det = J[0]*J[3] - J[1]*J[2];
+      if (!isFinite(det) || det === 0) break;
+      let dx = (J[3]*u - J[1]*v)/det, dy = (-J[2]*u + J[0]*v)/det;
+      const s = Math.max(Math.abs(dx)/W, Math.abs(dy)/Hh);
+      if (s > 0.5){ dx *= 0.5/s; dy *= 0.5/s; }
+      x -= dx; y -= dy;
+      if (Math.abs(dx) < 1e-12*(W + Math.abs(x)) && Math.abs(dy) < 1e-12*(Hh + Math.abs(y))){ ok = true; break; }
+    }
+    if (!ok) continue;
+    const r = F(x, y, t);
+    if (!(Math.abs(r[0]) + Math.abs(r[1]) < 1e-7)) continue;
+    if (x < S.xmin - 1e-9*W || x > S.xmax + 1e-9*W || y < S.ymin - 1e-9*Hh || y > S.ymax + 1e-9*Hh) continue;
+    if (Math.abs(x) < 1e-10*W) x = 0;
+    if (Math.abs(y) < 1e-10*Hh) y = 0;
+    if (found.some(e => Math.abs(e.x - x) < 1e-6*W && Math.abs(e.y - y) < 1e-6*Hh)) continue;
+    found.push(Object.assign({x, y}, classify(jac(F, x, y, t))));
+    if (found.length >= 40) return found;
+  }
+  return found.sort((p, q) => p.x - q.x || p.y - q.y);
+}
+
+// ─────────────────────────── drawing ───────────────────────────
+let size = 600, PR = {x:0, y:0, w:1, h:1};
+const M = {l:66, r:14, t:12, b:52};
+const sx = x => PR.x + (x - S.xmin)/(S.xmax - S.xmin)*PR.w;
+const sy = y => PR.y + PR.h - (y - S.ymin)/(S.ymax - S.ymin)*PR.h;
+const ix = px => S.xmin + (px - PR.x)/PR.w*(S.xmax - S.xmin);
+const iy = py => S.ymin + (PR.y + PR.h - py)/PR.h*(S.ymax - S.ymin);
+
+function hexToRgb(h){
+  h = h.replace('#','');
+  if (h.length === 3) h = h.split('').map(c => c + c).join('');
+  const n = parseInt(h, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function colors(){
+  const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue(n).trim();
+  return {surface:g('--surface'), ink:g('--ink'), muted:g('--muted'), grid:g('--grid'), axis:g('--axis'),
+    field:g('--field'), accent:g('--accent'), nx:g('--null-x'), ny:g('--null-y'),
+    ramp:[g('--ramp-1'), g('--ramp-2'), g('--ramp-3')].map(hexToRgb),
+    sols:[1,2,3,4,5,6,7].map(k => g('--sol-' + k))};
+}
+function rampColor(ramp, s){
+  s = Math.min(1, Math.max(0, isFinite(s) ? s : 0)) * (ramp.length - 1);
+  const k = Math.min(ramp.length - 2, Math.floor(s)), f = s - k, a = ramp[k], b = ramp[k + 1];
+  return 'rgb(' + Math.round(a[0] + (b[0]-a[0])*f) + ',' + Math.round(a[1] + (b[1]-a[1])*f) + ',' + Math.round(a[2] + (b[2]-a[2])*f) + ')';
+}
+function ticks(lo, hi, target){
+  const raw = (hi - lo)/target, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw/p;
+  const step = (m < 1.5 ? 1 : m < 3.5 ? 2 : m < 7.5 ? 5 : 10)*p;
+  const k0 = Math.ceil(lo/step - 1e-9), vals = [];
+  for (let k = k0; k*step <= hi + step*1e-9; k++) vals.push(Math.abs(k*step) < step*1e-9 ? 0 : k*step);
+  return {vals, step};
+}
+const minus = s => s.replace(/^-/, '−');
+function fmtTick(v, step){ return minus(v.toFixed(Math.max(0, -Math.floor(Math.log10(step) + 1e-9)))); }
+function fmt(v){ return Math.abs(v) < 1e-12 ? '0' : minus(String(+v.toPrecision(4))); }
+function fmtIn(v){ return String(+v.toPrecision(4)); }
+
+function render(){
+  const C = colors(), dpr = canvas.width/size;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, size, size);
+  ctx.fillStyle = C.surface; ctx.fillRect(PR.x, PR.y, PR.w, PR.h);
+
+  const tx = ticks(S.xmin, S.xmax, Math.max(3, Math.round(PR.w/90)));
+  const ty = ticks(S.ymin, S.ymax, Math.max(3, Math.round(PR.h/80)));
+  ctx.lineWidth = 1; ctx.strokeStyle = C.grid; ctx.beginPath();
+  for (const v of tx.vals){ const X = Math.round(sx(v)) + .5; ctx.moveTo(X, PR.y); ctx.lineTo(X, PR.y + PR.h); }
+  for (const v of ty.vals){ const Y = Math.round(sy(v)) + .5; ctx.moveTo(PR.x, Y); ctx.lineTo(PR.x + PR.w, Y); }
+  ctx.stroke();
+  ctx.strokeStyle = C.axis; ctx.beginPath();
+  if (S.xmin < 0 && S.xmax > 0){ const X = Math.round(sx(0)) + .5; ctx.moveTo(X, PR.y); ctx.lineTo(X, PR.y + PR.h); }
+  if (S.ymin < 0 && S.ymax > 0){ const Y = Math.round(sy(0)) + .5; ctx.moveTo(PR.x, Y); ctx.lineTo(PR.x + PR.w, Y); }
+  ctx.stroke();
+
+  ctx.fillStyle = C.muted;
+  ctx.font = '12px "Lato", system-ui, sans-serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const v of tx.vals) ctx.fillText(fmtTick(v, tx.step), sx(v), PR.y + PR.h + 7);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (const v of ty.vals) ctx.fillText(fmtTick(v, ty.step), PR.x - 7, sy(v));
+  ctx.fillStyle = C.ink;
+  ctx.font = 'italic 18px "STIX Two Text", "Cambria Math", "Times New Roman", serif';
+  ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+  ctx.fillText('x', PR.x + PR.w/2, PR.y + PR.h + 44);
+  ctx.textBaseline = 'middle';
+  ctx.fillText('y', 12, PR.y + PR.h/2);
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(PR.x, PR.y, PR.w, PR.h); ctx.clip();
+  if (S.field){
+    if (S.nullclines && S.nulls) drawNullclines(C);
+    drawArrows(C);
+    drawPaths(C);
+    if (S.showEq) for (const e of S.eqs) drawEq(e.kind, sx(e.x), sy(e.y), C);
+  }
+  ctx.restore();
+  ctx.strokeStyle = C.axis; ctx.lineWidth = 1;
+  ctx.strokeRect(PR.x + .5, PR.y + .5, PR.w - 1, PR.h - 1);
+}
+
+function drawNullclines(C){
+  ctx.lineWidth = 2; ctx.lineCap = 'butt';
+  const draw = (segs, color, dash) => {
+    ctx.strokeStyle = color; ctx.setLineDash(dash); ctx.beginPath();
+    for (let k = 0; k < segs.length; k += 4){ ctx.moveTo(sx(segs[k]), sy(segs[k+1])); ctx.lineTo(sx(segs[k+2]), sy(segs[k+3])); }
+    ctx.stroke();
+  };
+  draw(S.nulls.u, C.nx, []);
+  draw(S.nulls.v, C.ny, []);
+  ctx.setLineDash([]);
+}
+
+function drawArrows(C){
+  const F = S.field, n = S.n, t = S.t0, W = S.xmax - S.xmin, Hh = S.ymax - S.ymin;
+  const items = []; let mmax = 0;
+  for (let i = 0; i < n; i++) for (let j = 0; j < n; j++){
+    const x = S.xmin + W*(i + .5)/n, y = S.ymin + Hh*(j + .5)/n;
+    const r = F(x, y, t), px = r[0]*PR.w/W, py = -r[1]*PR.h/Hh, m = Math.hypot(px, py);
+    if (isFinite(m) && m > 0){ items.push([sx(x), sy(y), px/m, py/m, m]); if (m > mmax) mmax = m; }
+  }
+  const Lmax = Math.min(PR.w, PR.h)/n*S.alen;
+  ctx.strokeStyle = C.field; ctx.lineWidth = 1.25; ctx.lineCap = 'round'; ctx.beginPath();
+  for (const [cx, cy, ux, uy, m] of items){
+    const len = S.variable ? Lmax*m/mmax : Lmax;
+    const x0 = cx - ux*len/2, y0 = cy - uy*len/2, x1 = cx + ux*len/2, y1 = cy + uy*len/2;
+    ctx.moveTo(x0, y0); ctx.lineTo(x1, y1);
+    if (len > 2.5){
+      const hl = Math.min(7, Math.max(2.5, len*.32));
+      for (const th of [0.5, -0.5]){
+        const bx = -ux*Math.cos(th) + uy*Math.sin(th), by = -ux*Math.sin(th) - uy*Math.cos(th);
+        ctx.moveTo(x1, y1); ctx.lineTo(x1 + hl*bx, y1 + hl*by);
+      }
+    }
+  }
+  ctx.stroke();
+}
+
+function pathColor(C, s, t){ return S.timeColor ? rampColor(C.ramp, (t - S.tmin)/(S.tmax - S.tmin)) : (s.listed ? C.sols[s.colorIndex % C.sols.length] : C.muted); }
+
+function drawPaths(C){
+  ctx.lineWidth = S.lw; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const s of S.seeds){
+    if (!s.visible || !s.path) continue;
+    const p = s.path, n = p.xs.length;
+    if (n >= 2){
+      if (!S.timeColor){
+        ctx.strokeStyle = pathColor(C, s, 0); ctx.beginPath(); ctx.moveTo(sx(p.xs[0]), sy(p.ys[0]));
+        for (let k = 1; k < n; k++) ctx.lineTo(sx(p.xs[k]), sy(p.ys[k]));
+        ctx.stroke();
+      } else {
+        const chunk = Math.max(1, Math.ceil(n/180));
+        for (let k = 0; k < n - 1; k += chunk){
+          const end = Math.min(n - 1, k + chunk);
+          ctx.strokeStyle = pathColor(C, s, (p.ts[k] + p.ts[end])/2);
+          ctx.beginPath(); ctx.moveTo(sx(p.xs[k]), sy(p.ys[k]));
+          for (let q = k + 1; q <= end; q++) ctx.lineTo(sx(p.xs[q]), sy(p.ys[q]));
+          ctx.stroke();
+        }
+      }
+      // one arrowhead a little way along the forward path, showing the direction of motion
+      let dist = 0, k = p.seedIndex;
+      while (k < n - 1 && dist < 40){
+        dist += Math.hypot(sx(p.xs[k+1]) - sx(p.xs[k]), sy(p.ys[k+1]) - sy(p.ys[k])); k++;
+      }
+      if (dist >= 40){
+        const j = Math.max(p.seedIndex, k - 3);
+        const dx = sx(p.xs[k]) - sx(p.xs[j]), dy = sy(p.ys[k]) - sy(p.ys[j]), m = Math.hypot(dx, dy);
+        if (m > 0){
+          const ux = dx/m, uy = dy/m, X = sx(p.xs[k]), Y = sy(p.ys[k]), L = 6 + 1.5*S.lw, Wd = 3.5 + S.lw;
+          ctx.fillStyle = pathColor(C, s, p.ts[k]);
+          ctx.beginPath();
+          ctx.moveTo(X + ux*L/2, Y + uy*L/2);
+          ctx.lineTo(X - ux*L/2 - uy*Wd, Y - uy*L/2 + ux*Wd);
+          ctx.lineTo(X - ux*L/2 + uy*Wd, Y - uy*L/2 - ux*Wd);
+          ctx.closePath(); ctx.fill();
+        }
+      }
+    }
+    if (S.showSeeds){
+      const X = sx(p.xs[p.seedIndex]), Y = sy(p.ys[p.seedIndex]);
+      ctx.beginPath(); ctx.arc(X, Y, 3.5 + S.lw*.5, 0, 2*Math.PI);
+      ctx.fillStyle = S.timeColor ? C.ink : pathColor(C, s, 0); ctx.fill();
+      ctx.lineWidth = 1.5; ctx.strokeStyle = C.surface; ctx.stroke();
+      ctx.font = '700 13px "Lato", system-ui, sans-serif';
+      ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+      ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.strokeStyle = C.surface;
+      ctx.strokeText(s.label, X + 6, Y - 4);
+      ctx.fillStyle = S.timeColor ? C.ink : pathColor(C, s, 0);
+      ctx.fillText(s.label, X + 6, Y - 4);
+      ctx.lineWidth = S.lw;
+    }
+  }
+}
+
+function drawEq(kind, X, Y, C){
+  const r = 5.5;
+  ctx.beginPath(); ctx.arc(X, Y, r + 2.5, 0, 2*Math.PI); ctx.fillStyle = C.surface; ctx.fill();
+  ctx.lineWidth = 2; ctx.strokeStyle = C.ink; ctx.fillStyle = C.ink;
+  if (kind === 'deg'){
+    ctx.beginPath(); ctx.moveTo(X, Y - r); ctx.lineTo(X + r, Y); ctx.lineTo(X, Y + r); ctx.lineTo(X - r, Y); ctx.closePath(); ctx.stroke();
+    return;
+  }
+  ctx.beginPath(); ctx.arc(X, Y, r, 0, 2*Math.PI);
+  if (kind === 'stable'){ ctx.fill(); return; }
+  ctx.stroke();
+  if (kind === 'saddle'){ ctx.beginPath(); ctx.arc(X, Y, r, Math.PI/2, 3*Math.PI/2); ctx.closePath(); ctx.fill(); }
+  if (kind === 'center'){ ctx.beginPath(); ctx.arc(X, Y, 1.8, 0, 2*Math.PI); ctx.fill(); }
+}
+
+const GLYPH = {
+  stable:'<circle cx="7" cy="7" r="5.5" fill="currentColor"/>',
+  unstable:'<circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2"/>',
+  saddle:'<circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 2 A5 5 0 0 0 7 12 Z" fill="currentColor"/>',
+  center:'<circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="7" cy="7" r="1.8" fill="currentColor"/>',
+  deg:'<path d="M7 1.5 L12.5 7 L7 12.5 L1.5 7 Z" fill="none" stroke="currentColor" stroke-width="2"/>'
+};
+
+// ─────────────────────────── updating ───────────────────────────
+function recompute(){
+  if (!S.field){ S.paths = []; S.nulls = null; S.eqs = []; return; }
+  for (const s of S.seeds) s.path = solve(s.x, s.y);
+  S.nulls = S.nullclines ? nullclines() : null;
+  S.eqs = S.showEq ? equilibria() : [];
+}
+let pending = false;
+function refresh(){
+  if (pending) return;
+  pending = true;
+  requestAnimationFrame(() => { pending = false; recompute(); render(); updateEqList(); updateStatus(); updateSolNotes(); });
+}
+function updateStatus(){
+  const n = S.seeds.length;
+  $('status').textContent = n
+    ? n + (n === 1 ? ' solution' : ' solutions') + ' traced. Click anywhere to add another.'
+    : 'Click the plane to trace the solution through that point.';
+  $('legend').style.visibility = S.timeColor && n ? 'visible' : 'hidden';
+  $('tLo').textContent = 't = ' + fmt(S.tmin);
+  $('tHi').textContent = 't = ' + fmt(S.tmax);
+}
+function updateEqList(){
+  $('eqBox').hidden = !S.showEq;
+  if (!S.showEq) return;
+  const ul = $('eqList'); ul.innerHTML = '';
+  if (!S.eqs.length){
+    const li = document.createElement('li'); li.className = 'kind'; li.textContent = 'None found in this window.'; ul.appendChild(li);
+  }
+  for (const e of S.eqs){
+    const li = document.createElement('li');
+    li.innerHTML = '<svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">' + GLYPH[e.kind] + '</svg>';
+    const c = document.createElement('span'); c.textContent = '(' + fmt(e.x) + ', ' + fmt(e.y) + ')';
+    const k = document.createElement('span'); k.className = 'kind'; k.textContent = e.label;
+    li.append(c, k); ul.appendChild(li);
+  }
+  $('eqNote').textContent = S.usesT
+    ? 'Your system depends on t, so these are found with t held at the starting time.'
+    : 'Classified from the eigenvalues of the Jacobian at each point.';
+}
+
+function buildParams(){
+  const box = $('params'); box.innerHTML = '';
+  for (const name of S.paramNames){
+    const p = S.params[name];
+    const wrap = document.createElement('div'); wrap.className = 'param';
+    wrap.innerHTML =
+      '<div class="line"><span class="math"></span><input type="range" step="any"><input type="number" step="any" inputmode="decimal"></div>' +
+      '<div class="bounds">slider from <input type="number" step="any" inputmode="decimal"> to <input type="number" step="any" inputmode="decimal"></div>';
+    const [label] = wrap.getElementsByClassName('math');
+    label.textContent = (GREEK[name] || name) + ' =';
+    const [range, val, lo, hi] = wrap.querySelectorAll('input');
+    range.setAttribute('aria-label', name + ' slider'); val.setAttribute('aria-label', name);
+    lo.setAttribute('aria-label', name + ' slider minimum'); hi.setAttribute('aria-label', name + ' slider maximum');
+    const sync = () => {
+      range.min = p.min; range.max = p.max; range.step = (p.max - p.min)/400; range.value = p.value;
+      val.value = fmtIn(p.value); lo.value = fmtIn(p.min); hi.value = fmtIn(p.max);
+    };
+    const set = v => { p.value = v; S.P[name] = v; refresh(); };
+    range.addEventListener('input', () => { val.value = fmtIn(+range.value); set(+range.value); });
+    val.addEventListener('change', () => {
+      const v = parseFloat(val.value); if (!isFinite(v)){ sync(); return; }
+      if (v < p.min) p.min = v; if (v > p.max) p.max = v;
+      p.value = v; sync(); set(v);
+    });
+    lo.addEventListener('change', () => { const v = parseFloat(lo.value); if (isFinite(v) && v < p.max){ p.min = v; if (p.value < v) set(v); } sync(); });
+    hi.addEventListener('change', () => { const v = parseFloat(hi.value); if (isFinite(v) && v > p.min){ p.max = v; if (p.value > v) set(v); } sync(); });
+    sync();
+    box.appendChild(wrap);
+  }
+}
+
+function syncInputs(){
+  $('xmin').value = fmtIn(S.xmin); $('xmax').value = fmtIn(S.xmax);
+  $('ymin').value = fmtIn(S.ymin); $('ymax').value = fmtIn(S.ymax);
+  $('tmin').value = fmtIn(S.tmin); $('tmax').value = fmtIn(S.tmax); $('t0').value = fmtIn(S.t0);
+  $('nOut').textContent = S.n; $('lwOut').textContent = S.lw;
+  $('alen').value = S.alen;
+  $('variable').checked = S.variable; $('nullclines').checked = S.nullclines; $('showEq').checked = S.showEq;
+  $('timeColor').checked = S.timeColor; $('showSeeds').checked = S.showSeeds;
+}
+
+function applyPreset(i){
+  const p = PRESETS[i];
+  S.f = p.f; S.g = p.g; $('fInput').value = p.f; $('gInput').value = p.g;
+  S.params = {}; for (const k in (p.params || {})) S.params[k] = Object.assign({}, p.params[k]);
+  S.paramNames = [];
+  [S.xmin, S.xmax, S.ymin, S.ymax] = p.win; S.home = p.win.slice();
+  [S.tmin, S.tmax, S.t0] = p.t;
+  S.seeds = []; S.nextLabel = 0;
+  // for (const [x, y] of (p.seeds || [])) S.seeds.push(makeSeed(x, y));
+  buildSolList();
+  if (p.seeds && p.seeds.length){ $('x0').value = fmtIn(p.seeds[0][0]); $('y0').value = fmtIn(p.seeds[0][1]); }
+  ['winError','timeError','seedError'].forEach(id => $(id).textContent = '');
+  syncInputs();
+  compileSystem();
+  refresh();
+}
+
+function setWindow(xmin, xmax, ymin, ymax){
+  S.xmin = xmin; S.xmax = xmax; S.ymin = ymin; S.ymax = ymax;
+  $('winError').textContent = '';
+  syncInputs(); refresh();
+}
+
+function letters(i){
+  let s = ''; i++;
+  while (i > 0){ const r = (i - 1) % 26; s = String.fromCharCode(65 + r) + s; i = Math.floor((i - 1)/26); }
+  return s;
+}
+function makeSeed(x, y, listed = true){
+  if (!listed) return {x, y, visible:true, listed:false, label:'', colorIndex:-1, path:null};
+  const k = S.nextLabel++;
+  return {x, y, visible:true, listed:true, label:letters(k), colorIndex:k, path:null};
+}
+function addSeeds(list, listed = true){
+  if (!S.field) return;
+  for (const [x, y] of list){ const s = makeSeed(x, y, listed); s.path = solve(x, y); S.seeds.push(s); }
+  buildSolList(); render(); updateStatus();
+}
+function buildSolList(){
+  const ul = $('solList'); ul.innerHTML = '';
+  const listedSeeds = S.seeds.filter(s => s.listed);
+  ul.hidden = !listedSeeds.length;
+  for (const s of listedSeeds){
+    const li = document.createElement('li');
+    li.className = s.visible ? '' : 'off';
+    li.innerHTML = '<label class="sol-name"><input type="checkbox"><span></span></label>' +
+      '<span class="paren">(</span><input type="number" step="any" inputmode="decimal">' +
+      '<span class="paren">,</span><input type="number" step="any" inputmode="decimal"><span class="paren">)</span>' +
+      '<button type="button" class="remove">×</button><span class="note"></span>';
+    const [show, xi, yi] = li.querySelectorAll('input');
+    const name = li.querySelector('.sol-name span'), rm = li.querySelector('.remove');
+    name.textContent = 'Solution ' + s.label;
+    name.style.color = 'var(--sol-' + (s.colorIndex % 7 + 1) + ')';
+    show.checked = s.visible;
+    show.setAttribute('aria-label', 'Show solution ' + s.label);
+    xi.value = fmtIn(s.x); yi.value = fmtIn(s.y);
+    xi.setAttribute('aria-label', 'Solution ' + s.label + ' initial x');
+    yi.setAttribute('aria-label', 'Solution ' + s.label + ' initial y');
+    rm.setAttribute('aria-label', 'Remove solution ' + s.label);
+    s.noteEl = li.querySelector('.note');
+    s.noteEl.textContent = stopText(s.path);
+    show.addEventListener('change', () => { s.visible = show.checked; li.className = s.visible ? '' : 'off'; render(); });
+    const move = () => {
+      const x = parseFloat(xi.value), y = parseFloat(yi.value);
+      if (!isFinite(x) || !isFinite(y)){ xi.value = fmtIn(s.x); yi.value = fmtIn(s.y); return; }
+      s.x = x; s.y = y;
+      if (S.field) s.path = solve(x, y);
+      s.noteEl.textContent = stopText(s.path);
+      render();
+    };
+    xi.addEventListener('change', move); yi.addEventListener('change', move);
+    rm.addEventListener('click', () => {
+      S.seeds.splice(S.seeds.indexOf(s), 1);
+      buildSolList(); render(); updateStatus();
+    });
+    ul.appendChild(li);
+  }
+}
+
+// ─────────────────────────── wiring ───────────────────────────
+const sel = $('preset');
+PRESETS.forEach((p, i) => { const o = document.createElement('option'); o.value = i; o.textContent = p.name; sel.appendChild(o); });
+const custom = document.createElement('option'); custom.value = 'custom'; custom.textContent = 'Your own system'; custom.disabled = true;
+sel.appendChild(custom);
+sel.addEventListener('change', () => { if (sel.value !== 'custom') applyPreset(+sel.value); });
+
+let typingTimer = null;
+const onEquation = () => {
+  clearTimeout(typingTimer);
+  typingTimer = setTimeout(() => {
+    S.f = $('fInput').value; S.g = $('gInput').value; sel.value = 'custom';
+    if (compileSystem()) refresh();
+  }, 300);
+};
+$('fInput').addEventListener('input', onEquation);
+$('gInput').addEventListener('input', onEquation);
+
+const readNum = id => parseFloat($(id).value);
+['xmin','xmax','ymin','ymax'].forEach(id => $(id).addEventListener('change', () => {
+  const v = ['xmin','xmax','ymin','ymax'].map(readNum);
+  if (v.some(n => !isFinite(n))){ $('winError').textContent = 'Each window bound needs a number.'; return; }
+  if (!(v[0] < v[1] && v[2] < v[3])){ $('winError').textContent = 'The left number in each row must be smaller than the right.'; return; }
+  setWindow(...v);
+}));
+const zoom = f => {
+  const cx = (S.xmin + S.xmax)/2, cy = (S.ymin + S.ymax)/2, hw = (S.xmax - S.xmin)/2*f, hh = (S.ymax - S.ymin)/2*f;
+  setWindow(cx - hw, cx + hw, cy - hh, cy + hh);
+};
+$('zoomIn').addEventListener('click', () => zoom(0.5));
+$('zoomOut').addEventListener('click', () => zoom(2));
+$('zoomReset').addEventListener('click', () => setWindow(...S.home));
+
+const setTime = (tmin, tmax, t0) => {
+  if (![tmin, tmax, t0].every(isFinite)){ $('timeError').textContent = 'Each time needs a number.'; return; }
+  if (!(tmin < tmax)){ $('timeError').textContent = 'The start of the time range must be smaller than the end.'; return; }
+  if (t0 < tmin || t0 > tmax){ $('timeError').textContent = 'The starting time has to lie inside the time range.'; return; }
+  $('timeError').textContent = '';
+  S.tmin = tmin; S.tmax = tmax; S.t0 = t0; syncInputs(); refresh();
+};
+['tmin','tmax','t0'].forEach(id => $(id).addEventListener('change', () => setTime(readNum('tmin'), readNum('tmax'), readNum('t0'))));
+$('shorter').addEventListener('click', () => setTime(S.t0 - (S.t0 - S.tmin)/2, S.t0 + (S.tmax - S.t0)/2, S.t0));
+$('longer').addEventListener('click', () => setTime(S.t0 - (S.t0 - S.tmin)*2, S.t0 + (S.tmax - S.t0)*2, S.t0));
+
+$('nDown').addEventListener('click', () => { S.n = Math.max(4, S.n - 2); syncInputs(); render(); });
+$('nUp').addEventListener('click', () => { S.n = Math.min(60, S.n + 2); syncInputs(); render(); });
+$('alen').addEventListener('input', () => { S.alen = +$('alen').value; render(); });
+$('variable').addEventListener('change', () => { S.variable = $('variable').checked; render(); });
+$('nullclines').addEventListener('change', () => { S.nullclines = $('nullclines').checked; refresh(); });
+$('showEq').addEventListener('change', () => { S.showEq = $('showEq').checked; refresh(); });
+$('lwDown').addEventListener('click', () => { S.lw = Math.max(1, S.lw - 0.5); syncInputs(); render(); });
+$('lwUp').addEventListener('click', () => { S.lw = Math.min(6, S.lw + 0.5); syncInputs(); render(); });
+$('timeColor').addEventListener('change', () => { S.timeColor = $('timeColor').checked; render(); updateStatus(); });
+$('showSeeds').addEventListener('change', () => { S.showSeeds = $('showSeeds').checked; render(); });
+
+$('trace').addEventListener('click', () => {
+  const x = readNum('x0'), y = readNum('y0');
+  if (!isFinite(x) || !isFinite(y)){ $('seedError').textContent = 'Enter numbers for the initial x and y.'; return; }
+  $('seedError').textContent = '';
+  addSeeds([[x, y]]);
+});
+$('gridTrace').addEventListener('click', () => {
+  const list = [];
+  for (let i = 0; i < 5; i++) for (let j = 0; j < 5; j++)
+    list.push([S.xmin + (S.xmax - S.xmin)*(i + .5)/5, S.ymin + (S.ymax - S.ymin)*(j + .5)/5]);
+  addSeeds(list, false);
+});
+$('clear').addEventListener('click', () => { S.seeds = []; S.nextLabel = 0; buildSolList(); render(); updateStatus(); });
+
+function updateSolNotes(){ for (const s of S.seeds) if (s.noteEl) s.noteEl.textContent = stopText(s.path); }
+
+// numerical settings
+const NUM_DEFAULT = {rtol:1e-6, atolf:1e-9, hmax:0.05, maxSteps:20000, escape:4};
+const SUP = {'-':'⁻','0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'};
+function sci(v){
+  const e = Math.floor(Math.log10(v) + 1e-12);
+  if (e >= -2 && e <= 4) return fmt(v);
+  const m = +(v/Math.pow(10, e)).toPrecision(3);
+  const pow = '10' + String(e).split('').map(c => SUP[c]).join('');
+  return m === 1 ? pow : m + ' × ' + pow;
+}
+const showNum = v => (v !== 0 && (Math.abs(v) < 1e-3 || Math.abs(v) >= 1e6)) ? Number(v.toPrecision(6)).toExponential() : String(+v.toPrecision(6));
+function syncNum(){
+  const N = S.num;
+  $('rtol').value = showNum(N.rtol); $('atolf').value = showNum(N.atolf); $('hmax').value = showNum(N.hmax);
+  $('maxSteps').value = N.maxSteps; $('escape').value = showNum(N.escape);
+  $('numBlurb').textContent =
+    'Adaptive Dormand–Prince RK45 with relative tolerance ' + sci(N.rtol) + '. ' +
+    'Absolute tolerance is ' + sci(N.atolf) + ' times each displayed coordinate range. ' +
+    'Each step is at most ' + sci(N.hmax) + ' time units, with up to ' + N.maxSteps.toLocaleString('en-US') + ' steps in each direction. ' +
+    'Integrates forward and backward from the initial time. ' +
+    'Stops at invalid values, at the step limit, or more than ' + fmt(N.escape) + ' window width' + (N.escape === 1 ? '' : 's') + ' outside the window. ' +
+    'Numerical paths are approximations; stiff systems may need a different solver.';
+}
+function applyNum(){
+  const v = {rtol:readNum('rtol'), atolf:readNum('atolf'), hmax:readNum('hmax'),
+             maxSteps:Math.round(readNum('maxSteps')), escape:readNum('escape')};
+  let msg = '';
+  if (!(v.rtol > 0 && v.rtol <= 0.1)) msg = 'Relative tolerance must be above 0 and at most 0.1.';
+  else if (!(v.atolf > 0 && v.atolf <= 0.1)) msg = 'The absolute tolerance factor must be above 0 and at most 0.1.';
+  else if (!(v.hmax > 0)) msg = 'Max time step must be positive.';
+  else if (!(v.maxSteps >= 10 && v.maxSteps <= 1000000)) msg = 'Max steps must be between 10 and 1,000,000.';
+  else if (!(v.escape >= 0)) msg = 'The stopping distance can’t be negative.';
+  $('numError').textContent = msg;
+  if (msg) return;
+  S.num = v; syncNum(); refresh();
+}
+['rtol','atolf','hmax','maxSteps','escape'].forEach(id => $(id).addEventListener('change', applyNum));
+$('numReset').addEventListener('click', () => { S.num = Object.assign({}, NUM_DEFAULT); $('numError').textContent = ''; syncNum(); refresh(); });
+syncNum();
+
+function canvasPoint(ev){
+  const r = canvas.getBoundingClientRect(), px = ev.clientX - r.left, py = ev.clientY - r.top;
+  return (px >= PR.x && px <= PR.x + PR.w && py >= PR.y && py <= PR.y + PR.h) ? [ix(px), iy(py)] : null;
+}
+canvas.addEventListener('click', ev => {
+  const p = canvasPoint(ev); if (!p) return;
+  $('x0').value = fmtIn(p[0]); $('y0').value = fmtIn(p[1]); $('seedError').textContent = '';
+  addSeeds([p]);
+});
+canvas.addEventListener('pointermove', ev => {
+  const p = canvasPoint(ev);
+  if (!p){ $('coords').textContent = ''; return; }
+  const d = v => Math.max(0, 2 - Math.floor(Math.log10(v)));
+  $('coords').textContent = 'x = ' + minus(p[0].toFixed(d(S.xmax - S.xmin))) + ',  y = ' + minus(p[1].toFixed(d(S.ymax - S.ymin)));
+});
+canvas.addEventListener('pointerleave', () => { $('coords').textContent = ''; });
+
+function layout(){
+  const wrap = $('plotWrap'), w = wrap.clientWidth - 16;
+  const maxH = Math.max(320, window.innerHeight - 160);
+  size = Math.max(260, Math.floor(Math.min(w, maxH, 920)));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.width = size + 'px'; canvas.style.height = size + 'px';
+  canvas.width = Math.round(size*dpr); canvas.height = Math.round(size*dpr);
+  PR = {x:M.l, y:M.t, w:size - M.l - M.r, h:size - M.t - M.b};
+  render();
+}
+let lastW = 0;
+new ResizeObserver(() => { const w = $('plotWrap').clientWidth; if (w !== lastW){ lastW = w; layout(); } }).observe($('plotWrap'));
+window.addEventListener('resize', layout);
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+new MutationObserver(render).observe(document.documentElement, {attributes:true, attributeFilter:['data-theme']});
+
+applyPreset(0);
+layout();
+document.fonts.ready.then(layout);
+}
+
+if (window.math) startApp();
+else {
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/mathjs@12.4.2/lib/browser/math.js';
+  s.onload = startApp;
+  s.onerror = () => { document.getElementById('status').textContent = 'The equation parser didn’t load. Check your connection and reload the page.'; };
+  document.head.appendChild(s);
+}
+</script>
+</body>
+</html>
