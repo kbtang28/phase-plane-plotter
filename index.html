@@ -4,11 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Phase plane plotter</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
+<!-- <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=STIX+Two+Text:ital@1&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=STIX+Two+Text:ital@1&display=swap" rel="stylesheet"> -->
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/12.4.2/math.min.js"></script> -->
+<script src="math.min.js"></script>
 <style>
+@font-face{font-family:"Lato";src:url("fonts/Lato-Regular.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Lato";src:url("fonts/Lato-Bold.ttf") format("truetype");font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:"STIX Two Text";src:url("fonts/STIXTwoText-Italic.ttf") format("truetype");font-weight:400;font-style:italic;font-display:swap}
 :root{
   --page:#eef0f6; --surface:#ffffff; --ink:#1b2236; --muted:#5d6680; --line:#d8dce7;
   --grid:#eceff5; --axis:#a3abbe; --field:rgba(27,34,54,.72);
@@ -1059,7 +1063,7 @@ new MutationObserver(render).observe(document.documentElement, {attributes:true,
 
 applyPreset(0);
 layout();
-document.fonts.ready.then(layout);
+// document.fonts.ready.then(layout);
 }
 
 if (window.math) startApp();
