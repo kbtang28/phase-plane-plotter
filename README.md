@@ -2,7 +2,7 @@
  
 A browser-based phase plane plotter for calculus and differential equations courses. Nothing to install.
  
-**Try it:** https://kbtang28.github.io/phase-plane/
+**Try it:** https://kbtang28.github.io/phase-plane-plotter/
  
 Enter a system x′ = f(x, y, t), y′ = g(x, y, t), then click the plane to trace solutions. Other letters in the equations become parameter sliders. Nullclines and classified equilibria are optional. Solutions use adaptive Dormand–Prince RK45 integration.
  
